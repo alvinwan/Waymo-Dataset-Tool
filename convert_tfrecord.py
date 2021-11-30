@@ -26,6 +26,8 @@ def extract_frame(frames_path, outname, outdir_img, class_mapping, resize_ratio=
     cls_inds_all = {}
     track_ids_all = {}
     os.makedirs(outdir_img, exist_ok=True)
+    for path in ('labels', 'depths'):
+        os.makedirs(path, exist_ok=True)
 
     for fidx, data in enumerate(dataset):
         frame = open_dataset.Frame()
@@ -124,16 +126,10 @@ def main():
     parser.add_argument('record_path')
     parser.add_argument('output_id')
     parser.add_argument('--workdir', default='.')
-    parser.add_argument('--resize', default=0.5625, type=float)
+    parser.add_argument('--resize', default=1.0, type=float)
     args = parser.parse_args()
     os.chdir(args.workdir)
-    if not os.path.exists('images'):
-        os.mkdir('images')
     image_path = os.path.join('images', args.output_id)
-    if not os.path.exists('images'):
-        os.mkdir(image_path)
-    if not os.path.exists('labels'):
-        os.mkdir('labels')
     extract_frame(args.record_path, os.path.join('labels', args.output_id + '.txt'), image_path, WAYMO_CLASSES, resize_ratio=args.resize)
 
 if __name__ == "__main__":
