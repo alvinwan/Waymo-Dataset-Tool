@@ -7,7 +7,7 @@ from convert_tfrecord import extract_frame, WAYMO_CLASSES
 parser = argparse.ArgumentParser()
 parser.add_argument('split', choices=['training', 'validation'])
 parser.add_argument('--out-dir', default='./tmp')
-parser.add_argument('--resize', default=0.5625, type=float)
+parser.add_argument('--resize', default=1.0, type=float)
 args = parser.parse_args()
 
 url_template = 'gs://waymo_open_dataset_v_1_2_0/{split}/{split}_%04d.tar'.format(split=args.split)
