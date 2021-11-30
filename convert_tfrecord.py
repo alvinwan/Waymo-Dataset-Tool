@@ -22,8 +22,7 @@ def extract_frame(frames_path, outname, outdir_img, class_mapping, resize_ratio=
     scores_all = {}
     cls_inds_all = {}
     track_ids_all = {}
-    if not os.path.exists(outdir_img):
-        os.mkdir(outdir_img)
+    os.makedirs(outdir_img, exist_ok=True)
 
     for fidx, data in enumerate(dataset):
         frame = open_dataset.Frame()
@@ -101,6 +100,7 @@ def convert_kitti(boxes, types, ids, id_dict):
     return bboxes, cls_inds, track_ids
 
 def writeKITTI(filename, bboxes, scores, cls_inds, track_ids=None, classes=None):
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
     f = open(filename, 'w')
     for fid in bboxes:
         for bid in range(len(bboxes[fid])):

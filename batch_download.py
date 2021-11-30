@@ -16,8 +16,7 @@ if args.split == 'training':
 elif args.split == 'validation':
     num_segs = 8
 
-if not os.path.exists(args.out_dir):
-    os.mkdir(args.out_dir)
+os.makedirs(args.out_dir, exist_ok=True)
 
 clip_id = len(glob.glob('labels/*.txt'))
 for seg_id in range(0, num_segs):
