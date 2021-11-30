@@ -17,7 +17,7 @@ except Exception as e:
     print(e)
 WAYMO_CLASSES = ['TYPE_UNKNOWN', 'TYPE_VECHICLE', 'TYPE_PEDESTRIAN', 'TYPE_SIGN', 'TYPE_CYCLIST']
 
-def extract_frame(frames_path, outname, outdir_img, class_mapping, resize_ratio=1.0):
+def extract_frame(frames_path, outname, outdir_img, outdir_depth, class_mapping=WAYMO_CLASSES, resize_ratio=1.0):
 
     dataset = tf.data.TFRecordDataset(frames_path, compression_type='')
     id_dict = {}
@@ -25,9 +25,9 @@ def extract_frame(frames_path, outname, outdir_img, class_mapping, resize_ratio=
     scores_all = {}
     cls_inds_all = {}
     track_ids_all = {}
+    os.makedirs(os.path.dirname(outname), exist_ok=True)
     os.makedirs(outdir_img, exist_ok=True)
-    for path in ('labels', 'depths'):
-        os.makedirs(path, exist_ok=True)
+    os.makedirs(outdir_depth, exist_ok=True)
 
     for fidx, data in enumerate(dataset):
         frame = open_dataset.Frame()
@@ -35,12 +35,10 @@ def extract_frame(frames_path, outname, outdir_img, class_mapping, resize_ratio=
 
         (range_images, camera_projections, range_image_top_pose) = (
             frame_utils.parse_range_image_and_camera_projection(frame))
-
         time = frame.context.stats.time_of_day
         weather = frame.context.stats.weather
-        im = tf.image.decode_jpeg(frame.images[0].image).numpy()[:,:,::-1]
-        target_size = (int(im.shape[1] * resize_ratio), int(im.shape[0] * resize_ratio))
-        im = cv2.resize(im, target_size)
+
+        # Pack object bounding boxes
         labels = frame.camera_labels
         if len(labels) == 0:
             labels = frame.projected_lidar_labels
@@ -56,14 +54,14 @@ def extract_frame(frames_path, outname, outdir_img, class_mapping, resize_ratio=
         cls_inds_all[fidx] = cls_inds
         track_ids_all[fidx] = track_ids
 
-        '''
-        im = cv2.resize(im, (im.shape[1] // 2, im.shape[0] // 2))
-        print(frame.camera_labels[0])
-        cv2.imshow("win", im)
-        cv2.waitKey(30)
-        print("Frame count", fidx)
-        '''
+        # Write image
+        im = tf.image.decode_jpeg(frame.images[0].image).numpy()[:,:,::-1]
+        target_size = (int(im.shape[1] * resize_ratio), int(im.shape[0] * resize_ratio))
+        im = cv2.resize(im, target_size)
         cv2.imwrite(outdir_img + '/%04d.png'%fidx, im)
+
+        # write depth maps
+        writedepth(outdir_depth + '/%04d.png'%fidx, frame, range_images, camera_projections, range_image_top_pose)
 
     if len(bboxes_all) > 0:
         writeKITTI(outname, bboxes_all, scores_all, cls_inds_all, track_ids_all, class_mapping)
@@ -121,6 +119,54 @@ def writeKITTI(filename, bboxes, scores, cls_inds, track_ids=None, classes=None)
             f.write(' '.join(fields) + '\n')
     f.close()
 
+def writedepth(filename, frame, range_images, camera_projections, range_image_top_pose):
+    # projection code taken from https://colab.research.google.com/github/waymo-research/waymo-open-dataset/blob/master/tutorial/tutorial.ipynb
+    points, cp_points = frame_utils.convert_range_image_to_point_cloud(
+        frame,
+        range_images,
+        camera_projections,
+        range_image_top_pose)
+    points_ri2, cp_points_ri2 = frame_utils.convert_range_image_to_point_cloud(
+        frame,
+        range_images,
+        camera_projections,
+        range_image_top_pose,
+        ri_index=1)
+
+    # 3d points in vehicle frame.
+    points_all = np.concatenate(points, axis=0)
+    points_all_ri2 = np.concatenate(points_ri2, axis=0)
+    # camera projection corresponding to each point.
+    cp_points_all = np.concatenate(cp_points, axis=0)
+    cp_points_all_ri2 = np.concatenate(cp_points_ri2, axis=0)
+
+    images = sorted(frame.images, key=lambda i:i.name)
+    cp_points_all_concat = np.concatenate([cp_points_all, points_all], axis=-1)
+    cp_points_all_concat_tensor = tf.constant(cp_points_all_concat)
+
+    # The distance between lidar points and vehicle frame origin.
+    points_all_tensor = tf.norm(points_all, axis=-1, keepdims=True)
+    cp_points_all_tensor = tf.constant(cp_points_all, dtype=tf.int32)
+
+    mask = tf.equal(cp_points_all_tensor[..., 0], images[0].name)
+
+    cp_points_all_tensor = tf.cast(tf.gather_nd(
+        cp_points_all_tensor, tf.where(mask)), dtype=tf.float32)
+    points_all_tensor = tf.gather_nd(points_all_tensor, tf.where(mask))
+
+    projected_points_all_from_raw_data = tf.concat(
+        [cp_points_all_tensor[..., 1:3], points_all_tensor], axis=-1).numpy()
+
+    x, y, _ = projected_points_all_from_raw_data.astype(np.uint16).T
+    h, w, _ = tf.image.decode_jpeg(frame.images[0].image).numpy()[:,:,::-1].shape
+    assert y.max() < h and x.max() < w, (y.max(), h, x.max(), w)
+
+    depth_map = np.zeros((h, w), dtype=np.float32)
+    depth_map[y, x] = projected_points_all_from_raw_data[:, 2]
+    depth_map = (depth_map * 256.).astype(np.uint16)
+    cv2.imwrite(filename, depth_map, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('record_path')
@@ -129,8 +175,10 @@ def main():
     parser.add_argument('--resize', default=1.0, type=float)
     args = parser.parse_args()
     os.chdir(args.workdir)
-    image_path = os.path.join('images', args.output_id)
-    extract_frame(args.record_path, os.path.join('labels', args.output_id + '.txt'), image_path, WAYMO_CLASSES, resize_ratio=args.resize)
+    image_dir = os.path.join('images', args.output_id)
+    label_path = os.path.join('labels', args.output_id + '.txt')
+    depth_dir = os.path.join('depth', args.output_id)
+    extract_frame(args.record_path, label_path, image_dir, depth_dir, WAYMO_CLASSES, resize_ratio=args.resize)
 
 if __name__ == "__main__":
     main()
