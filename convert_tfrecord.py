@@ -17,7 +17,7 @@ except Exception as e:
     print(e)
 WAYMO_CLASSES = ['TYPE_UNKNOWN', 'TYPE_VECHICLE', 'TYPE_PEDESTRIAN', 'TYPE_SIGN', 'TYPE_CYCLIST']
 
-def extract_frame(frames_path, outname, outdir_img, outdir_depth, class_mapping=WAYMO_CLASSES, resize_ratio=1.0):
+def extract_frame(frames_path, outname, outdir_img, outdir_depth, outdir_calib, class_mapping=WAYMO_CLASSES, resize_ratio=1.0):
 
     dataset = tf.data.TFRecordDataset(frames_path, compression_type='')
     id_dict = {}
@@ -28,6 +28,7 @@ def extract_frame(frames_path, outname, outdir_img, outdir_depth, class_mapping=
     os.makedirs(os.path.dirname(outname), exist_ok=True)
     os.makedirs(outdir_img, exist_ok=True)
     os.makedirs(outdir_depth, exist_ok=True)
+    os.makedirs(outdir_calib, exist_ok=True)
 
     for fidx, data in enumerate(dataset):
         frame = open_dataset.Frame()
@@ -62,6 +63,9 @@ def extract_frame(frames_path, outname, outdir_img, outdir_depth, class_mapping=
 
         # write depth maps
         writedepth(outdir_depth + '/%04d.png'%fidx, frame, range_images, camera_projections, range_image_top_pose)
+
+        # write calib
+        writecalib(outdir_calib + '/%04d.txt'%fidx, frame)
 
     if len(bboxes_all) > 0:
         writeKITTI(outname, bboxes_all, scores_all, cls_inds_all, track_ids_all, class_mapping)
@@ -167,6 +171,13 @@ def writedepth(filename, frame, range_images, camera_projections, range_image_to
     cv2.imwrite(filename, depth_map, [cv2.IMWRITE_PNG_COMPRESSION, 0])
 
 
+def writecalib(filename, frame):
+    with open(filename, 'w') as f:
+        f.write('camera_id,R00,R01,R02,T0,R10,R11,R12,T1,R20,R21,R22,T2,P30,P31,P32,P33\n')
+        for i, camera in enumerate(frame.context.camera_calibrations):
+            f.write(f"{i},{','.join(map(str, camera.extrinsic.transform))}\n")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('record_path')
@@ -178,7 +189,8 @@ def main():
     image_dir = os.path.join('images', args.output_id)
     label_path = os.path.join('labels', args.output_id + '.txt')
     depth_dir = os.path.join('depth', args.output_id)
-    extract_frame(args.record_path, label_path, image_dir, depth_dir, WAYMO_CLASSES, resize_ratio=args.resize)
+    calib_dir = os.path.join('calib', args.output_id)
+    extract_frame(args.record_path, label_path, image_dir, depth_dir, calib_dir, WAYMO_CLASSES, resize_ratio=args.resize)
 
 if __name__ == "__main__":
     main()
