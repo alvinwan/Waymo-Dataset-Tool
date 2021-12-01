@@ -1,4 +1,4 @@
-
+# tensorflow2_latest_p37
 import tensorflow as tf
 import math
 import numpy as np
@@ -182,10 +182,10 @@ def writedepth(filename, frame, points_all, cp_points_all, images):
 
 
 def writecalib(filename, frame):
-    with open(filename, 'w') as f:
-        f.write('camera_id,R00,R01,R02,T0,R10,R11,R12,T1,R20,R21,R22,T2,P30,P31,P32,P33\n')
+    with open(filename, 'w') as fh:
+        fh.write('camera_id,R00,R01,R02,T0,R10,R11,R12,T1,R20,R21,R22,T2,P30,P31,P32,P33\n')
         for i, camera in enumerate(frame.context.camera_calibrations):
-            f.write(f"{i},{','.join(map(str, camera.extrinsic.transform))}\n")
+            fh.write(f"{i},{','.join(map(str, camera.extrinsic.transform))}\n")
 
 
 def main():
