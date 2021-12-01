@@ -18,7 +18,8 @@ elif args.split == 'validation':
 
 os.makedirs(args.out_dir, exist_ok=True)
 
-clip_id = len(glob.glob('labels/*.txt'))
+clip_id = len(glob.glob(f'{args.out_dir}/labels/*.txt'))
+print(f" * Starting from {clip_id}")
 for seg_id in range(0, num_segs):
     flag = os.system('gsutil cp ' + url_template % seg_id + ' ' + args.out_dir)
     assert flag == 0, 'Failed to download segment %d. Make sure gsutil is installed'%seg_id
