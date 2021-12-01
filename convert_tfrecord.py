@@ -196,11 +196,11 @@ def main():
     parser.add_argument('--resize', default=1.0, type=float)
     args = parser.parse_args()
     os.chdir(args.workdir)
-    image_dir = os.path.join('images', args.output_id)
-    label_path = os.path.join('labels', args.output_id + '.txt')
-    depth_dir = os.path.join('depth', args.output_id)
-    calib_dir = os.path.join('calib', args.output_id)
-    points_dir = os.path.join('points', args.output_id)
+    image_dir = os.path.join(args.workdir, 'images', args.output_id)
+    label_path = os.path.join(args.workdir, 'labels', args.output_id + '.txt')
+    depth_dir = os.path.join(args.workdir, 'depth', args.output_id)
+    calib_dir = os.path.join(args.workdir, 'calib', args.output_id)
+    points_dir = os.path.join(args.workdir, 'points', args.output_id)
     extract_frame(args.record_path, label_path, image_dir, depth_dir, calib_dir, points_dir, resize_ratio=args.resize)
 
 if __name__ == "__main__":

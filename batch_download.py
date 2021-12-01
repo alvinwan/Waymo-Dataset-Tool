@@ -26,11 +26,11 @@ for seg_id in range(0, num_segs):
     tfrecords = sorted(glob.glob('%s/*.tfrecord'%args.out_dir))
     for record in tfrecords:
         dir_name = str(clip_id)
-        image_dir = os.path.join('images', dir_name)
-        label_path = os.path.join('labels', dir_name + '.txt')
-        depth_dir = os.path.join('depth', dir_name)
-        calib_dir = os.path.join('calib', dir_name)
-        points_dir = os.path.join('points', dir_name)
+        image_dir = os.path.join(args.out_dir, 'images', dir_name)
+        label_path = os.path.join(args.out_dir, 'labels', dir_name + '.txt')
+        depth_dir = os.path.join(args.out_dir, 'depth', dir_name)
+        calib_dir = os.path.join(args.out_dir, 'calib', dir_name)
+        points_dir = os.path.join(args.out_dir, 'points', dir_name)
         extract_frame(record, label_path, image_dir, depth_dir, calib_dir, points_dir, resize_ratio=args.resize)
         print("Clip %d done"%clip_id)
         clip_id += 1
