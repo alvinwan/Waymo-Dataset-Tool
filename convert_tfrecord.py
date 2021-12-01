@@ -17,7 +17,7 @@ except Exception as e:
     print(e)
 WAYMO_CLASSES = ['TYPE_UNKNOWN', 'TYPE_VECHICLE', 'TYPE_PEDESTRIAN', 'TYPE_SIGN', 'TYPE_CYCLIST']
 
-def extract_frame(frames_path, outname, outdir_img, outdir_depth, outdir_calib, class_mapping=WAYMO_CLASSES, resize_ratio=1.0):
+def extract_frame(frames_path, outname, outdir_img, outdir_depth, outdir_calib, outdir_points, class_mapping=WAYMO_CLASSES, resize_ratio=1.0):
 
     dataset = tf.data.TFRecordDataset(frames_path, compression_type='')
     id_dict = {}
@@ -61,8 +61,11 @@ def extract_frame(frames_path, outname, outdir_img, outdir_depth, outdir_calib, 
         im = cv2.resize(im, target_size)
         cv2.imwrite(outdir_img + '/%04d.png'%fidx, im)
 
+        # write point cloud
+        points_all, cp_points_all, images = writepoints(outdir_points + '/%04d.npy'%fidx, frame, range_images, camera_projections, range_image_top_pose)
+
         # write depth maps
-        writedepth(outdir_depth + '/%04d.png'%fidx, frame, range_images, camera_projections, range_image_top_pose)
+        writedepth(outdir_depth + '/%04d.png'%fidx, frame, points_all, cp_points_all, images)
 
         # write calib
         writecalib(outdir_calib + '/%04d.txt'%fidx, frame)
@@ -123,7 +126,7 @@ def writeKITTI(filename, bboxes, scores, cls_inds, track_ids=None, classes=None)
             f.write(' '.join(fields) + '\n')
     f.close()
 
-def writedepth(filename, frame, range_images, camera_projections, range_image_top_pose):
+def writepoints(filename, frame, range_images, camera_projections, range_image_top_pose):
     # projection code taken from https://colab.research.google.com/github/waymo-research/waymo-open-dataset/blob/master/tutorial/tutorial.ipynb
     points, cp_points = frame_utils.convert_range_image_to_point_cloud(
         frame,
@@ -148,6 +151,13 @@ def writedepth(filename, frame, range_images, camera_projections, range_image_to
     cp_points_all_concat = np.concatenate([cp_points_all, points_all], axis=-1)
     cp_points_all_concat_tensor = tf.constant(cp_points_all_concat)
 
+    np.save(filename, points_all)
+
+    return points_all, cp_points_all, images
+
+
+def writedepth(filename, frame, points_all, cp_points_all, images):
+    
     # The distance between lidar points and vehicle frame origin.
     points_all_tensor = tf.norm(points_all, axis=-1, keepdims=True)
     cp_points_all_tensor = tf.constant(cp_points_all, dtype=tf.int32)
@@ -190,7 +200,8 @@ def main():
     label_path = os.path.join('labels', args.output_id + '.txt')
     depth_dir = os.path.join('depth', args.output_id)
     calib_dir = os.path.join('calib', args.output_id)
-    extract_frame(args.record_path, label_path, image_dir, depth_dir, calib_dir, WAYMO_CLASSES, resize_ratio=args.resize)
+    points_dir = os.path.join('points', args.output_id)
+    extract_frame(args.record_path, label_path, image_dir, depth_dir, calib_dir, points_dir, resize_ratio=args.resize)
 
 if __name__ == "__main__":
     main()

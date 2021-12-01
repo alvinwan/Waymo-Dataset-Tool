@@ -25,7 +25,12 @@ for seg_id in range(0, num_segs):
     os.system('cd %s; tar xf %s_%04d.tar'%(args.out_dir, args.split, seg_id))
     tfrecords = sorted(glob.glob('%s/*.tfrecord'%args.out_dir))
     for record in tfrecords:
-        extract_frame(record, 'labels/%05d.txt'%clip_id, 'images/%05d'%clip_id, 'depth/%05d'%clip_id, 'calib/%05d'%clip_id, resize_ratio=args.resize)
+        image_dir = os.path.join('images', args.output_id)
+        label_path = os.path.join('labels', args.output_id + '.txt')
+        depth_dir = os.path.join('depth', args.output_id)
+        calib_dir = os.path.join('calib', args.output_id)
+        points_dir = os.path.join('points', args.output_id)
+        extract_frame(args.record_path, label_path, image_dir, depth_dir, calib_dir, points_dir, resize_ratio=args.resize)
         print("Clip %d done"%clip_id)
         clip_id += 1
         os.remove(record)
