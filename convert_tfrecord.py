@@ -29,6 +29,7 @@ def extract_frame(frames_path, outname, outdir_img, outdir_depth, outdir_calib, 
     os.makedirs(outdir_img, exist_ok=True)
     os.makedirs(outdir_depth, exist_ok=True)
     os.makedirs(outdir_calib, exist_ok=True)
+    os.makedirs(outdir_points, exist_ok=True)
 
     for fidx, data in enumerate(dataset):
         frame = open_dataset.Frame()
